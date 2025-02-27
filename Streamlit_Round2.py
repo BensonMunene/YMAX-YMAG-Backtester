@@ -678,18 +678,15 @@ elif page == "About":
     st.title("About")
     st.write("This page is under construction.")
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# EXPORT RESULTS TO EXCEL
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 export_button = st.button("Export Results to Excel")
 
 if export_button:
-    # Only proceed if we actually have some data
-    if (ymax_df_final is None) and (ymag_df_final is None):
+    # Check if we have at least one final DataFrame
+    if (st.session_state["ymax_df_final"] is None) and (st.session_state["ymag_df_final"] is None):
         st.warning("No results to export. Please run a backtest first.")
         st.stop()
 
-    # Gather the parameter/description info for the 'Description' sheet
+    # Gather parameters to document in the Description sheet
     export_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     description_data = {
         "Parameter": [
@@ -701,41 +698,50 @@ if export_button:
             "Export Timestamp"
         ],
         "Value": [
-            asset_choice,                  # from your existing radio button
-            strategy_choice,               # from your existing radio button
-            corr_window,                   # from slider or default
-            vix_threshold,                 # from slider or default
-            vvix_threshold,                # from slider or default
+            asset_choice,                  # e.g. "YMAX", "YMAG", or "Both"
+            strategy_choice,               # e.g. "Strategy 1"
+            corr_window,                   # from slider if Strategy 1
+            vix_threshold,                 # from slider if Strategy 3
+            vvix_threshold,                # from slider if Strategy 3
             export_date
         ]
     }
     desc_df = pd.DataFrame(description_data)
 
-    # Decide on an output filename
     output_filename = "Exported_Results.xlsx"
 
     with pd.ExcelWriter(output_filename, engine="xlsxwriter") as writer:
         # 1) Description sheet
         desc_df.to_excel(writer, sheet_name="Description", index=False)
 
-        # 2) Prices_and_stats_df (if available)
-        if prices_and_stats_df is not None:
-            prices_and_stats_df.to_excel(writer, sheet_name="Prices_and_stats_df", index=False)
+        # 2) Prices_and_stats_df
+        if st.session_state["prices_and_stats_df"] is not None:
+            st.session_state["prices_and_stats_df"].to_excel(
+                writer, sheet_name="Prices_and_stats_df", index=False
+            )
 
         # 3) YMAX Trading Results
-        if ymax_df_final is not None:
-            ymax_df_final.to_excel(writer, sheet_name="YMAX Trading Results", index=False)
+        if st.session_state["ymax_df_final"] is not None:
+            st.session_state["ymax_df_final"].to_excel(
+                writer, sheet_name="YMAX Trading Results", index=False
+            )
 
         # 4) YMAX Performance
-        if perf_df_ymax_final is not None:
-            perf_df_ymax_final.to_excel(writer, sheet_name="YMAX Performance", index=True)
+        if st.session_state["perf_df_ymax_final"] is not None:
+            st.session_state["perf_df_ymax_final"].to_excel(
+                writer, sheet_name="YMAX Performance", index=True
+            )
 
         # 5) YMAG Trading Results
-        if ymag_df_final is not None:
-            ymag_df_final.to_excel(writer, sheet_name="YMAG Trading Results", index=False)
+        if st.session_state["ymag_df_final"] is not None:
+            st.session_state["ymag_df_final"].to_excel(
+                writer, sheet_name="YMAG Trading Results", index=False
+            )
 
         # 6) YMAG Performance
-        if perf_df_ymag_final is not None:
-            perf_df_ymag_final.to_excel(writer, sheet_name="YMAG Performance", index=True)
+        if st.session_state["perf_df_ymag_final"] is not None:
+            st.session_state["perf_df_ymag_final"].to_excel(
+                writer, sheet_name="YMAG Performance", index=True
+            )
 
     st.success(f"✅ All DataFrames successfully saved to '{output_filename}'")
