@@ -4,11 +4,27 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objs as go
 import datetime
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # ==============================================
 # Page Configuration
 # ==============================================
 st.set_page_config(page_title="YMAX YMAG Backtester", layout="wide")
+
+# ==============================================
+# Session-State Initialization (to persist results across reruns)
+# ==============================================
+if "ymax_df_final" not in st.session_state:
+    st.session_state["ymax_df_final"] = None
+if "ymag_df_final" not in st.session_state:
+    st.session_state["ymag_df_final"] = None
+if "perf_df_ymax_final" not in st.session_state:
+    st.session_state["perf_df_ymax_final"] = None
+if "perf_df_ymag_final" not in st.session_state:
+    st.session_state["perf_df_ymag_final"] = None
+if "prices_and_stats_df" not in st.session_state:
+    st.session_state["prices_and_stats_df"] = None
 
 # ==============================================
 # STRATEGY 1 (Unchanged)
@@ -134,19 +150,16 @@ def backtest_strategy_2(df, asset="YMAX", initial_investment=10_000):
         currently_in_market = temp_df.loc[i-1, "In_Market"]
 
         if currently_in_market:
-            # Check exit
             if exit_condition(vix_today, vvix_today):
                 temp_df.loc[i, "In_Market"] = False
                 temp_df.loc[i, "Shares_Held"] = 0.0
                 temp_df.loc[i, "Strategy"] = "No Investment"
             else:
-                # Remain
                 shares_held = temp_df.loc[i, "Shares_Held"]
                 new_val = shares_held * (price_today + div_today)
                 temp_df.loc[i, "Portfolio_Value"] = new_val
                 temp_df.loc[i, "Strategy"] = strategy_label_long
         else:
-            # Out of market -> re-enter if condition
             if reentry_condition(vix_today, vvix_today):
                 cash_available = temp_df.loc[i, "Portfolio_Value"]
                 if price_today > 0:
@@ -173,12 +186,9 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
     Exit if VIX > 20 or VVIX > 100
     """
     temp_df = df.copy()
-
-    # 1) Sort by date
     temp_df.sort_values("Date", inplace=True)
     temp_df.reset_index(drop=True, inplace=True)
 
-    # 2) Pick columns for the chosen asset
     if asset == "YMAX":
         price_col = "YMAX"
         div_col = "YMAX Dividends"
@@ -188,7 +198,6 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
         div_col = "YMAG Dividends"
         strategy_label_long = "Long YMAG"
 
-    # 3) Set up columns
     temp_df["Portfolio_Value"] = np.nan
     temp_df.loc[0, "Portfolio_Value"] = initial_investment
     temp_df["In_Market"] = False
@@ -197,24 +206,17 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
     temp_df.loc[0, "Shares_Held"] = 0.0
     temp_df["Strategy"] = "No Investment"
 
-    # 4) Helper functions from snippet
     def in_market_condition(vix, vvix):
-        # Condition for entering or remaining in the market:
-        # Enter when VIX < 20 and VVIX < 95
         return (vix < 20) and (vvix < 95)
 
     def exit_condition(vix, vvix):
-        # Exit if VIX > 20 or VVIX > 100
         return (vix > 20) or (vvix > 100)
 
-    # 5) Backtest loop
     for i in range(1, len(temp_df)):
-        # Carry forward previous day portfolio, in_market, shares
         temp_df.loc[i, "Portfolio_Value"] = temp_df.loc[i-1, "Portfolio_Value"]
         temp_df.loc[i, "In_Market"] = temp_df.loc[i-1, "In_Market"]
         temp_df.loc[i, "Shares_Held"] = temp_df.loc[i-1, "Shares_Held"]
 
-        # Current day data
         vix_today = temp_df.loc[i, "VIX"]
         vvix_today = temp_df.loc[i, "VVIX"]
         price_today = temp_df.loc[i, price_col]
@@ -223,23 +225,17 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
         currently_in_market = temp_df.loc[i-1, "In_Market"]
 
         if currently_in_market:
-            # Check exit
             if exit_condition(vix_today, vvix_today):
-                # EXIT
                 temp_df.loc[i, "In_Market"] = False
                 temp_df.loc[i, "Shares_Held"] = 0.0
                 temp_df.loc[i, "Strategy"] = "No Investment"
-                # Portfolio Value remains the same (carried forward)
             else:
-                # Remain in market
                 shares_held = temp_df.loc[i, "Shares_Held"]
                 new_val = shares_held * (price_today + div_today)
                 temp_df.loc[i, "Portfolio_Value"] = new_val
                 temp_df.loc[i, "Strategy"] = strategy_label_long
         else:
-            # Out of market => check entry
             if in_market_condition(vix_today, vvix_today):
-                # ENTER
                 cash_available = temp_df.loc[i, "Portfolio_Value"]
                 if price_today > 0:
                     shares_bought = cash_available / price_today
@@ -253,7 +249,6 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
             else:
                 temp_df.loc[i, "Strategy"] = "No Investment"
 
-    # 6) Compute daily returns
     temp_df["Portfolio_Return"] = temp_df["Portfolio_Value"].pct_change()
     return temp_df
 
@@ -263,12 +258,10 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
 def compute_rolling_correlations(df, window):
     returns = df.loc[:, ~df.columns.str.contains("Dividends")].pct_change()
     corr_df = pd.DataFrame(index=df.index)
-
     corr_df["YMAX-VIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VIX"])
     corr_df["YMAX-VVIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VVIX"])
     corr_df["YMAG-VIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VIX"])
     corr_df["YMAG-VVIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VVIX"])
-
     merged = df.join(corr_df)
     merged.dropna(inplace=True)
     return merged
@@ -277,25 +270,19 @@ def calculate_performance_metrics(portfolio_df):
     df = portfolio_df.dropna(subset=["Portfolio_Value"]).copy()
     if len(df) < 2:
         return {}
-
     start_val = df.iloc[0]["Portfolio_Value"]
     end_val = df.iloc[-1]["Portfolio_Value"]
     total_return = (end_val / start_val - 1) * 100
-
     num_days = (df.iloc[-1]["Date"] - df.iloc[0]["Date"]).days
     years = num_days / 365 if num_days > 0 else 1
     cagr = ((end_val / start_val) ** (1 / years) - 1) * 100 if years > 0 else np.nan
-
     ann_vol = df["Portfolio_Return"].std() * np.sqrt(252) * 100
     risk_free_rate = 0.02
     sharpe = (cagr / 100 - risk_free_rate) / (ann_vol / 100) if ann_vol != 0 else np.nan
-
     rolling_max = df["Portfolio_Value"].cummax()
     drawdown = df["Portfolio_Value"] / rolling_max - 1
     max_dd = drawdown.min() * 100
-
     calmar = (cagr / abs(max_dd)) if max_dd != 0 else np.nan
-
     return {
         "Total Return (%)": total_return,
         "CAGR (%)": cagr,
@@ -332,7 +319,6 @@ def plot_drawdown(df):
     drawdown_series = (df["Portfolio_Value"] / rolling_max - 1) * 100
     dd_df = df[["Date"]].copy()
     dd_df["Drawdown"] = drawdown_series
-
     fig = px.area(
         dd_df,
         x="Date",
@@ -348,20 +334,13 @@ def plot_drawdown(df):
 # ==============================================
 def plot_entry_exit(df, asset_name="YMAX"):
     temp_df = df.copy()
-
-    # If "In_Market" not found, derive from Strategy
     if "In_Market" not in temp_df.columns:
         temp_df["In_Market"] = temp_df["Strategy"].apply(lambda x: x.startswith("Long"))
-
     temp_df["Entry"] = (temp_df["In_Market"].shift(1) == False) & (temp_df["In_Market"] == True)
     temp_df["Exit"]  = (temp_df["In_Market"].shift(1) == True) & (temp_df["In_Market"] == False)
-
     entry_days = temp_df[temp_df["Entry"] == True]
     exit_days  = temp_df[temp_df["Exit"] == True]
-
     fig = go.Figure()
-
-    # 1) Asset Price (left axis)
     fig.add_trace(
         go.Scatter(
             x=temp_df["Date"],
@@ -372,8 +351,6 @@ def plot_entry_exit(df, asset_name="YMAX"):
             yaxis="y1"
         )
     )
-
-    # 2) Entry Markers
     fig.add_trace(
         go.Scatter(
             x=entry_days["Date"],
@@ -384,8 +361,6 @@ def plot_entry_exit(df, asset_name="YMAX"):
             yaxis="y1"
         )
     )
-
-    # 3) Exit Markers
     fig.add_trace(
         go.Scatter(
             x=exit_days["Date"],
@@ -396,8 +371,6 @@ def plot_entry_exit(df, asset_name="YMAX"):
             yaxis="y1"
         )
     )
-
-    # 4) Portfolio Value (right axis)
     fig.add_trace(
         go.Scatter(
             x=temp_df["Date"],
@@ -408,7 +381,6 @@ def plot_entry_exit(df, asset_name="YMAX"):
             yaxis="y2"
         )
     )
-
     fig.update_layout(
         title=f"Entry & Exit Plot ({asset_name})",
         xaxis=dict(title="Date"),
@@ -427,7 +399,6 @@ def plot_entry_exit(df, asset_name="YMAX"):
         ),
         hovermode="x unified"
     )
-
     return fig
 
 # ==============================================
@@ -462,7 +433,6 @@ exiting if conditions stray and re-entering once stability returns.
 """)
 
     col_sel1, col_sel2 = st.columns([1, 1])
-
     with col_sel1:
         st.subheader("Asset Selection")
         asset_choice = st.radio(
@@ -470,7 +440,6 @@ exiting if conditions stray and re-entering once stability returns.
             options=["YMAX", "YMAG", "Both"],
             index=2
         )
-
     with col_sel2:
         st.subheader("Strategy Selection")
         strategy_choice = st.radio(
@@ -479,12 +448,20 @@ exiting if conditions stray and re-entering once stability returns.
         )
         
     st.markdown("---")
-    # Parameter sliders
     if strategy_choice == "Strategy 1":
         st.subheader("Parameters")
         corr_window = st.slider("Select correlation window (days):", min_value=1, max_value=30, value=14)
     else:
         corr_window = 14  # default if not Strategy 1
+
+    # For Strategy 3, although your snippet uses fixed thresholds, we include sliders as before.
+    if strategy_choice == "Strategy 3":
+        st.subheader("Parameters")
+        vix_threshold = st.slider("Select VIX threshold:", min_value=1, max_value=40, value=20)
+        vvix_threshold = st.slider("Select VVIX threshold:", min_value=1, max_value=120, value=95)
+    else:
+        vix_threshold = 20
+        vvix_threshold = 95
 
     run_backtest = st.button("Run Backtest for Selected Strategy")
 
@@ -495,18 +472,15 @@ exiting if conditions stray and re-entering once stability returns.
         except FileNotFoundError:
             st.error("Could not find 'All Assets and Dividends.csv'. Make sure it's in the same folder.")
             st.stop()
-
         # 2) Prepare data
         all_assets["Date"] = pd.to_datetime(all_assets["Date"])
         all_assets.set_index("Date", inplace=True)
         all_assets.sort_index(inplace=True)
-
         # 3) Compute rolling correlations using corr_window
         ps_df = compute_rolling_correlations(all_assets, corr_window)
         ps_df.reset_index(inplace=True)
         prices_and_stats_df = ps_df.copy()
-
-        # Helper
+        # 4) Process asset based on selected strategy
         def process_asset(asset_name, strategy):
             if strategy == "Strategy 1":
                 return backtest_strategy_1(ps_df, asset=asset_name)
@@ -516,17 +490,12 @@ exiting if conditions stray and re-entering once stability returns.
                 return backtest_strategy_3(ps_df, asset=asset_name)
             else:
                 return None
-
         chosen_strat = strategy_choice
 
-        # ==============================================
-        # BOTH ASSETS
-        # ==============================================
         if asset_choice == "Both":
-            # YMAX
+            # YMAX Backtest
             st.markdown(f"## {chosen_strat} Backtest - YMAX")
             ymax_res = process_asset("YMAX", chosen_strat)
-
             row1_col1, row1_col2 = st.columns(2)
             with row1_col1:
                 fig_val_ymax = plot_portfolio_value(ymax_res, asset_label=f"{chosen_strat} (YMAX)")
@@ -534,7 +503,6 @@ exiting if conditions stray and re-entering once stability returns.
             with row1_col2:
                 fig_entry_exit_ymax = plot_entry_exit(ymax_res, asset_name="YMAX")
                 st.plotly_chart(fig_entry_exit_ymax, use_container_width=True, key="entry_exit_ymax")
-
             row2_col1, row2_col2 = st.columns(2)
             with row2_col1:
                 fig_dd_ymax = plot_drawdown(ymax_res)
@@ -542,22 +510,21 @@ exiting if conditions stray and re-entering once stability returns.
             with row2_col2:
                 fig_strat_ymax = plot_strategy_distribution(ymax_res)
                 st.plotly_chart(fig_strat_ymax, use_container_width=True, key="strat_ymax")
-
             ymax_metrics = calculate_performance_metrics(ymax_res)
             if ymax_metrics:
                 df_ymax_perf = pd.DataFrame([ymax_metrics], index=["YMAX Strategy"]).round(2)
                 st.dataframe(df_ymax_perf)
             else:
                 st.info("Not enough data points for YMAX metrics.")
-
             ymax_res["Portfolio_Return"] = (ymax_res["Portfolio_Return"] * 100).round(2)
             ymax_res.rename(columns={"Portfolio_Return": "Portfolio_Return (%)"}, inplace=True)
-            ymax_df_final = ymax_res.copy()
+            # Store YMAX results in session state
+            st.session_state["ymax_df_final"] = ymax_res
+            st.session_state["perf_df_ymax_final"] = df_ymax_perf
 
-            # YMAG
+            # YMAG Backtest
             st.markdown(f"## {chosen_strat} Backtest - YMAG")
             ymag_res = process_asset("YMAG", chosen_strat)
-
             row1_col1, row1_col2 = st.columns(2)
             with row1_col1:
                 fig_val_ymag = plot_portfolio_value(ymag_res, asset_label=f"{chosen_strat} (YMAG)")
@@ -565,7 +532,6 @@ exiting if conditions stray and re-entering once stability returns.
             with row1_col2:
                 fig_entry_exit_ymag = plot_entry_exit(ymag_res, asset_name="YMAG")
                 st.plotly_chart(fig_entry_exit_ymag, use_container_width=True, key="entry_exit_ymag")
-
             row2_col1, row2_col2 = st.columns(2)
             with row2_col1:
                 fig_dd_ymag = plot_drawdown(ymag_res)
@@ -573,25 +539,20 @@ exiting if conditions stray and re-entering once stability returns.
             with row2_col2:
                 fig_strat_ymag = plot_strategy_distribution(ymag_res)
                 st.plotly_chart(fig_strat_ymag, use_container_width=True, key="strat_ymag")
-
             ymag_metrics = calculate_performance_metrics(ymag_res)
             if ymag_metrics:
                 df_ymag_perf = pd.DataFrame([ymag_metrics], index=["YMAG Strategy"]).round(2)
                 st.dataframe(df_ymag_perf)
             else:
                 st.info("Not enough data points for YMAG metrics.")
-
             ymag_res["Portfolio_Return"] = (ymag_res["Portfolio_Return"] * 100).round(2)
             ymag_res.rename(columns={"Portfolio_Return": "Portfolio_Return (%)"}, inplace=True)
-            ymag_df_final = ymag_res.copy()
+            st.session_state["ymag_df_final"] = ymag_res
+            st.session_state["perf_df_ymag_final"] = df_ymag_perf
 
-        # ==============================================
-        # SINGLE ASSET
-        # ==============================================
         else:
             st.markdown(f"## {chosen_strat} Backtest - {asset_choice}")
             res = process_asset(asset_choice, chosen_strat)
-
             row1_col1, row1_col2 = st.columns(2)
             with row1_col1:
                 fig_val = plot_portfolio_value(res, asset_label=f"{chosen_strat} ({asset_choice})")
@@ -599,7 +560,6 @@ exiting if conditions stray and re-entering once stability returns.
             with row1_col2:
                 fig_entry_exit = plot_entry_exit(res, asset_name=asset_choice)
                 st.plotly_chart(fig_entry_exit, use_container_width=True, key="entry_exit_single")
-
             row2_col1, row2_col2 = st.columns(2)
             with row2_col1:
                 fig_dd = plot_drawdown(res)
@@ -607,25 +567,84 @@ exiting if conditions stray and re-entering once stability returns.
             with row2_col2:
                 fig_strat = plot_strategy_distribution(res)
                 st.plotly_chart(fig_strat, use_container_width=True, key="strat_single")
-
             metrics_res = calculate_performance_metrics(res)
             if metrics_res:
                 perf_df = pd.DataFrame([metrics_res], index=[f"{asset_choice} Strategy"]).round(2)
                 st.dataframe(perf_df)
             else:
                 st.info("Not enough data points for metrics.")
-
             res["Portfolio_Return"] = (res["Portfolio_Return"] * 100).round(2)
             res.rename(columns={"Portfolio_Return": "Portfolio_Return (%)"}, inplace=True)
-
             if asset_choice == "YMAX":
-                ymax_df_final = res.copy()
+                st.session_state["ymax_df_final"] = res.copy()
+                st.session_state["perf_df_ymax_final"] = perf_df
             else:
-                ymag_df_final = res.copy()
+                st.session_state["ymag_df_final"] = res.copy()
+                st.session_state["perf_df_ymag_final"] = perf_df
+
+        # Store prices_and_stats_df in session state
+        st.session_state["prices_and_stats_df"] = prices_and_stats_df
+
+        # Display the stored data (preview)
+        if st.session_state["ymax_df_final"] is not None:
+            st.subheader("YMAX Trading Results")
+            st.dataframe(st.session_state["ymax_df_final"])
+        if st.session_state["perf_df_ymax_final"] is not None:
+            st.subheader("YMAX Performance Metrics")
+            st.dataframe(st.session_state["perf_df_ymax_final"])
+        if st.session_state["ymag_df_final"] is not None:
+            st.subheader("YMAG Trading Results")
+            st.dataframe(st.session_state["ymag_df_final"])
+        if st.session_state["perf_df_ymag_final"] is not None:
+            st.subheader("YMAG Performance Metrics")
+            st.dataframe(st.session_state["perf_df_ymag_final"])
 
     else:
         st.info("Click 'Run Backtest for Selected Strategy' to see results.")
 
+    # ==============================================
+    # EXPORT RESULTS TO EXCEL
+    # ==============================================
+    export_button = st.button("Export Results to Excel")
+    if export_button:
+        if (st.session_state["ymax_df_final"] is None) and (st.session_state["ymag_df_final"] is None):
+            st.warning("No results to export. Please run a backtest first.")
+            st.stop()
+        export_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        description_data = {
+            "Parameter": [
+                "Selected Asset(s)",
+                "Selected Strategy",
+                "Correlation Window (if Strategy 1)",
+                "VIX Threshold (if Strategy 3)",
+                "VVIX Threshold (if Strategy 3)",
+                "Export Timestamp"
+            ],
+            "Value": [
+                asset_choice,
+                strategy_choice,
+                corr_window,
+                vix_threshold,
+                vvix_threshold,
+                export_date
+            ]
+        }
+        desc_df = pd.DataFrame(description_data)
+        output_filename = "Exported_Results.xlsx"
+        with pd.ExcelWriter(output_filename, engine="xlsxwriter") as writer:
+            desc_df.to_excel(writer, sheet_name="Description", index=False)
+            if st.session_state["prices_and_stats_df"] is not None:
+                st.session_state["prices_and_stats_df"].to_excel(writer, sheet_name="Prices_and_stats_df", index=False)
+            if st.session_state["ymax_df_final"] is not None:
+                st.session_state["ymax_df_final"].to_excel(writer, sheet_name="YMAX Trading Results", index=False)
+            if st.session_state["perf_df_ymax_final"] is not None:
+                st.session_state["perf_df_ymax_final"].to_excel(writer, sheet_name="YMAX Performance", index=True)
+            if st.session_state["ymag_df_final"] is not None:
+                st.session_state["ymag_df_final"].to_excel(writer, sheet_name="YMAG Trading Results", index=False)
+            if st.session_state["perf_df_ymag_final"] is not None:
+                st.session_state["perf_df_ymag_final"].to_excel(writer, sheet_name="YMAG Performance", index=True)
+        st.success(f"✅ All DataFrames successfully saved to '{output_filename}'")
+        
 # ==============================================
 # STRATEGY OVERVIEW PAGE
 # ==============================================
@@ -636,7 +655,6 @@ elif page == "Strategy Overview":
     st.markdown("- [Strategy 2 Detailed Explanation](#strategy-2-detailed-explanation)")
     st.markdown("- [Strategy 3 Detailed Explanation](#strategy-3-detailed-explanation)")
     st.markdown("---")
-
     st.markdown("### Strategy 1 Detailed Explanation")
     st.markdown(
         """
@@ -646,14 +664,13 @@ elif page == "Strategy Overview":
 3. **Rule 3:** If VIX ≥ 20 or VVIX ≥ 100 and correlation of YMAX/YMAG with VIX/VVIX < -0.3 → No investment.
 """
     )
-
     st.markdown("### Strategy 2 Detailed Explanation")
     st.markdown(
         """
 **Investment Rules for Strategy 2:**  
 1. **Remain in market if**: 15 ≤ VIX ≤ 20,  90 ≤ VVIX < 100  
 2. **Exit if**: VIX < 15 or VIX > 20 or VVIX < 90 or VVIX ≥ 100  
-3. **Re-Enter if**: VIX ∈ [15,20], VVIX ∈ [90,95]  
+3. **Re-Enter if**: VIX ∈ [15,20] and VVIX ∈ [90,95]  
 
 **Summary of Logic**:  
 - In-Market Condition: 15 ≤ VIX ≤ 20, 90 ≤ VVIX < 100  
@@ -661,7 +678,6 @@ elif page == "Strategy Overview":
 - Re-Entry Condition: VIX ∈ [15,20], VVIX ∈ [90,95]
 """
     )
-
     st.markdown("### Strategy 3 Detailed Explanation")
     st.markdown(
         """
@@ -670,78 +686,6 @@ elif page == "Strategy Overview":
 2. **Exit if**: VIX > 20 or VVIX > 100  
 """
     )
-
-# ==============================================
-# ABOUT PAGE
-# ==============================================
 elif page == "About":
     st.title("About")
     st.write("This page is under construction.")
-
-export_button = st.button("Export Results to Excel")
-
-if export_button:
-    # Check if we have at least one final DataFrame
-    if (st.session_state["ymax_df_final"] is None) and (st.session_state["ymag_df_final"] is None):
-        st.warning("No results to export. Please run a backtest first.")
-        st.stop()
-
-    # Gather parameters to document in the Description sheet
-    export_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    description_data = {
-        "Parameter": [
-            "Selected Asset(s)",
-            "Selected Strategy",
-            "Correlation Window (if Strategy 1)",
-            "VIX Threshold (if Strategy 3)",
-            "VVIX Threshold (if Strategy 3)",
-            "Export Timestamp"
-        ],
-        "Value": [
-            asset_choice,                  # e.g. "YMAX", "YMAG", or "Both"
-            strategy_choice,               # e.g. "Strategy 1"
-            corr_window,                   # from slider if Strategy 1
-            vix_threshold,                 # from slider if Strategy 3
-            vvix_threshold,                # from slider if Strategy 3
-            export_date
-        ]
-    }
-    desc_df = pd.DataFrame(description_data)
-
-    output_filename = "Exported_Results.xlsx"
-
-    with pd.ExcelWriter(output_filename, engine="xlsxwriter") as writer:
-        # 1) Description sheet
-        desc_df.to_excel(writer, sheet_name="Description", index=False)
-
-        # 2) Prices_and_stats_df
-        if st.session_state["prices_and_stats_df"] is not None:
-            st.session_state["prices_and_stats_df"].to_excel(
-                writer, sheet_name="Prices_and_stats_df", index=False
-            )
-
-        # 3) YMAX Trading Results
-        if st.session_state["ymax_df_final"] is not None:
-            st.session_state["ymax_df_final"].to_excel(
-                writer, sheet_name="YMAX Trading Results", index=False
-            )
-
-        # 4) YMAX Performance
-        if st.session_state["perf_df_ymax_final"] is not None:
-            st.session_state["perf_df_ymax_final"].to_excel(
-                writer, sheet_name="YMAX Performance", index=True
-            )
-
-        # 5) YMAG Trading Results
-        if st.session_state["ymag_df_final"] is not None:
-            st.session_state["ymag_df_final"].to_excel(
-                writer, sheet_name="YMAG Trading Results", index=False
-            )
-
-        # 6) YMAG Performance
-        if st.session_state["perf_df_ymag_final"] is not None:
-            st.session_state["perf_df_ymag_final"].to_excel(
-                writer, sheet_name="YMAG Performance", index=True
-            )
-
-    st.success(f"✅ All DataFrames successfully saved to '{output_filename}'")
