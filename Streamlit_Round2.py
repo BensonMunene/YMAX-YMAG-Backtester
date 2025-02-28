@@ -25,7 +25,7 @@ if "prices_and_stats_df" not in st.session_state:
     st.session_state["prices_and_stats_df"] = None
 
 # ==============================================
-# STRATEGY 1 (Unchanged)
+# STRATEGY 1
 # ==============================================
 def backtest_strategy_1(df, asset="YMAX", initial_investment=10_000):
     """
@@ -99,7 +99,7 @@ def backtest_strategy_1(df, asset="YMAX", initial_investment=10_000):
     return temp_df
 
 # ==============================================
-# STRATEGY 2 (Matches your snippet exactly)
+# STRATEGY 2
 # ==============================================
 def backtest_strategy_2(df, asset="YMAX", initial_investment=10_000):
     """
@@ -176,7 +176,7 @@ def backtest_strategy_2(df, asset="YMAX", initial_investment=10_000):
     return temp_df
 
 # ==============================================
-# STRATEGY 3 (EXACT logic from your snippet)
+# STRATEGY 3
 # ==============================================
 def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
     """
@@ -298,8 +298,14 @@ def plot_portfolio_value(df, asset_label="Portfolio Value"):
         title=f"{asset_label} Over Time",
         labels={"Portfolio_Value": "Portfolio Value ($)"},
     )
-    fig.update_traces(line=dict(width=2))
-    fig.update_layout(xaxis_title="Date", yaxis_title="Value ($)")
+    fig.update_traces(
+        line=dict(width=2),
+        hovertemplate="Date=%{x}<br>Portfolio Value=$%{y:.2f}")
+    
+    fig.update_layout(
+        xaxis_title="Date", 
+        yaxis_title="Value ($)",
+        yaxis=dict(tickformat=".2f"))
     return fig
 
 def plot_strategy_distribution(df):
@@ -324,7 +330,14 @@ def plot_drawdown(df):
         title="Drawdown Over Time",
         labels={"Drawdown": "Drawdown (%)"},
     )
-    fig.update_traces(line=dict(width=2), fill="tozeroy")
+    fig.update_traces(
+        line=dict(width=2), 
+        fill="tozeroy",
+        hovertemplate="Date=%{x}<br>Drawdown=%{y:.2f}%<extra></extra>")
+    
+    # Format y-axis ticks to 2 decimal places
+    fig.update_layout(yaxis=dict(tickformat=".2f"))
+    
     return fig
 
 # ==============================================
@@ -376,7 +389,8 @@ def plot_entry_exit(df, asset_name="YMAX"):
             mode="lines",
             line=dict(color="orange", width=2),
             name="Portfolio Value",
-            yaxis="y2"
+            yaxis="y2",
+            hovertemplate="<span style='color:orange;'>Portfolio Value=$%{y:.2f}</span><extra></extra>"
         )
     )
     fig.update_layout(
@@ -395,7 +409,7 @@ def plot_entry_exit(df, asset_name="YMAX"):
             orientation="h",
             bgcolor="rgba(255,255,255,0.6)"
         ),
-        hovermode="x unified"
+        hovermode="closest"
     )
     return fig
 
@@ -429,6 +443,24 @@ exiting if conditions stray and re-entering once stability returns.
 
 **Strategy 3:** Enters positions only when VIX < 20 and VVIX < 95, exiting if VIX > 20 or VVIX > 100.
 """)
+    st.subheader("Data Preview")
+    st.markdown("This is a preview of the data that we are using to run the backtests below.")
+    try:
+        csv_data = pd.read_csv("All Assets and Dividends.csv")
+         # 2) Prepare data
+        csv_data["Date"] = pd.to_datetime(csv_data["Date"])
+        csv_data.set_index("Date", inplace=True)
+        # Display the recent dates rows of the data
+        st.dataframe(csv_data, height=200)
+    except FileNotFoundError:
+        st.error("Could not find 'All Assets and Dividends.csv'. Make sure it's in the same folder.")
+
+#Explanation for the buttons of assets and strategies        
+    st.markdown("""
+    ---
+    Below, you can choose which asset(s) to backtest and which strategy to apply. 
+    Your selections will determine the logic used in the subsequent backtest calculations.
+    """)
 
     col_sel1, col_sel2 = st.columns([1, 1])
     with col_sel1:
@@ -575,10 +607,8 @@ exiting if conditions stray and re-entering once stability returns.
             res.rename(columns={"Portfolio_Return": "Portfolio_Return (%)"}, inplace=True)
             if asset_choice == "YMAX":
                 st.session_state["ymax_df_final"] = res.copy()
-                st.session_state["perf_df_ymax_final"] = perf_df
             else:
                 st.session_state["ymag_df_final"] = res.copy()
-                st.session_state["perf_df_ymag_final"] = perf_df
 
         # Store prices_and_stats_df in session state
         st.session_state["prices_and_stats_df"] = prices_and_stats_df
@@ -587,61 +617,14 @@ exiting if conditions stray and re-entering once stability returns.
         if st.session_state["ymax_df_final"] is not None:
             st.subheader("YMAX Trading Results")
             st.dataframe(st.session_state["ymax_df_final"])
-        if st.session_state["perf_df_ymax_final"] is not None:
-            st.subheader("YMAX Performance Metrics")
-            st.dataframe(st.session_state["perf_df_ymax_final"])
+
         if st.session_state["ymag_df_final"] is not None:
             st.subheader("YMAG Trading Results")
             st.dataframe(st.session_state["ymag_df_final"])
-        if st.session_state["perf_df_ymag_final"] is not None:
-            st.subheader("YMAG Performance Metrics")
-            st.dataframe(st.session_state["perf_df_ymag_final"])
 
     else:
         st.info("Click 'Run Backtest for Selected Strategy' to see results.")
 
-    # ==============================================
-    # EXPORT RESULTS TO EXCEL
-    # ==============================================
-    export_button = st.button("Export Results to Excel")
-    if export_button:
-        if (st.session_state["ymax_df_final"] is None) and (st.session_state["ymag_df_final"] is None):
-            st.warning("No results to export. Please run a backtest first.")
-            st.stop()
-        export_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        description_data = {
-            "Parameter": [
-                "Selected Asset(s)",
-                "Selected Strategy",
-                "Correlation Window (if Strategy 1)",
-                "VIX Threshold (if Strategy 3)",
-                "VVIX Threshold (if Strategy 3)",
-                "Export Timestamp"
-            ],
-            "Value": [
-                asset_choice,
-                strategy_choice,
-                corr_window,
-                vix_threshold,
-                vvix_threshold,
-                export_date
-            ]
-        }
-        desc_df = pd.DataFrame(description_data)
-        output_filename = "Exported_Results.xlsx"
-        with pd.ExcelWriter(output_filename, engine="xlsxwriter") as writer:
-            desc_df.to_excel(writer, sheet_name="Description", index=False)
-            if st.session_state["prices_and_stats_df"] is not None:
-                st.session_state["prices_and_stats_df"].to_excel(writer, sheet_name="Prices_and_stats_df", index=False)
-            if st.session_state["ymax_df_final"] is not None:
-                st.session_state["ymax_df_final"].to_excel(writer, sheet_name="YMAX Trading Results", index=False)
-            if st.session_state["perf_df_ymax_final"] is not None:
-                st.session_state["perf_df_ymax_final"].to_excel(writer, sheet_name="YMAX Performance", index=True)
-            if st.session_state["ymag_df_final"] is not None:
-                st.session_state["ymag_df_final"].to_excel(writer, sheet_name="YMAG Trading Results", index=False)
-            if st.session_state["perf_df_ymag_final"] is not None:
-                st.session_state["perf_df_ymag_final"].to_excel(writer, sheet_name="YMAG Performance", index=True)
-        st.success(f"✅ All DataFrames successfully saved to '{output_filename}'")
         
 # ==============================================
 # STRATEGY OVERVIEW PAGE
@@ -649,10 +632,147 @@ exiting if conditions stray and re-entering once stability returns.
 elif page == "Strategy Overview":
     st.title("Strategy Overview")
     st.markdown("## Table of Contents")
+    st.markdown("- [Backtesting Methodology](#Backtesting-Methodology)")
     st.markdown("- [Strategy 1 Detailed Explanation](#strategy-1-detailed-explanation)")
     st.markdown("- [Strategy 2 Detailed Explanation](#strategy-2-detailed-explanation)")
     st.markdown("- [Strategy 3 Detailed Explanation](#strategy-3-detailed-explanation)")
     st.markdown("---")
+
+    # Backtesting Methodology Section
+    st.markdown("### Backtesting Methodology")
+    st.markdown(
+        """
+### 🚀 Handling Different Trading Strategies
+
+Each trading strategy affects the **portfolio value** differently. We now handle **three scenarios** based on the chosen strategy for each day.
+
+#### 🟢 1️⃣ Case 1: Long YMAG (No Hedge)
+##### **Condition:**
+- If **VIX < 20** and **VVIX < 100**, we go **fully long on YMAG (without hedging QQQ).**
+
+##### **Portfolio Update Formula:**
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = \text{Shares Held} \times (\text{YMAG Price}_t + \text{YMAG Dividend}_t)""")
+    st.markdown(
+        """
+Where:
+- **Shares Held** = Number of shares purchased using the previous day's portfolio value:
+"""
+    )
+    st.latex(r"""\text{Shares Held} = \frac{\text{Portfolio Value}_{t-1}}{\text{YMAG Price}_{t-1}}""")
+    st.markdown(
+        """
+- **YMAG Price** = The price of YMAG at time $t$.
+- **YMAG Dividend** = Dividend per share distributed at time $t$.
+
+#### ✅ Example Calculation:
+- **Yesterday’s Portfolio Value:** $10,000
+- **YMAG Price Yesterday:** $20.00
+- **Shares Purchased:** $10,000 / $20.00 = **500 shares**
+- **Today’s YMAG Price:** $20.50
+- **Dividend Today:** $0.50 per share
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = 500 \times (20.50 + 0.50) = 500 \times 21.00 = 10,500""")
+    st.markdown(
+        """
+---
+
+#### 🔵 2️⃣ Case 2: Long YMAG + Short QQQ (Hedged)
+##### **Condition:**
+- If **VIX ≥ 20** or **VVIX ≥ 100**, we go **long YMAG and hedge by shorting QQQ**.
+- Shorting QQQ means that **when QQQ goes up, we lose money**, and **when QQQ goes down, we gain money**.
+
+##### **Portfolio Update Formula:**
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = (\text{Shares Held} \times (\text{YMAG Price}_t + \text{YMAG Dividend}_t)) - \text{QQQ Hedge PnL}_t""")
+    st.markdown(
+        """
+Where:
+- **Shares Held** = Same as in Case 1:
+"""
+    )
+    st.latex(r"""\text{Shares Held} = \frac{\text{Portfolio Value}_{t-1}}{\text{YMAG Price}_{t-1}}""")
+    st.markdown(
+        """
+- **QQQ Hedge Profit/Loss (PnL):**
+"""
+    )
+    st.latex(r"""\text{QQQ Hedge PnL}_t = \text{QQQ Shares Shorted} \times (\text{QQQ Price}_{t-1} - \text{QQQ Price}_t)""")
+    st.markdown(
+        """
+- **QQQ Shares Shorted:** (Calculated only when the hedge is first applied)
+"""
+    )
+    st.latex(r"""\text{QQQ Shares Shorted} = \frac{\text{Portfolio Value}_{t-1}}{\text{QQQ Price}_{t-1}}""")
+    st.markdown(
+        """
+##### ✅ Example Calculation:
+- **Yesterday’s Portfolio Value:** $10,000
+- **YMAG Price Yesterday:** $20.00
+- **Shares Purchased:** $10,000 / $20.00 = **500 shares**
+- **Today’s YMAG Price:** $20.60
+- **Dividend Today:** $0.50 per share
+- **QQQ Price Yesterday:** $400 → **Today:** $405
+
+##### **Step 1: Calculate Hedge PnL**
+- **QQQ Shares Shorted:**
+"""
+    )
+    st.latex(r"""\frac{10,000}{400} = 25 \text{ shares}""")
+    st.markdown(
+        """
+- **QQQ Hedge Loss:**
+"""
+    )
+    st.latex(r"""25 \times (400 - 405) = 25 \times (-5) = -125""")
+    st.markdown(
+        """
+##### **Step 2: Update Portfolio Value**
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = (500 \times (20.60 + 0.50)) - (-125)""")
+    st.latex(r"""= (500 \times 21.10) - (-125) = 10,550 + 125 = 10,675""")
+    st.markdown(
+        """
+---
+
+#### 🔴 3️⃣ Case 3: No Investment (Stay in Cash)
+##### **Condition:**
+- If **VIX ≥ 20 or VVIX ≥ 100** and **correlation of YMAG with VIX or VVIX < -0.3**, we **do not invest**.
+- The **portfolio remains unchanged**.
+
+##### **Portfolio Update Formula:**
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = \text{Portfolio Value}_{t-1}""")
+    st.markdown(
+        """
+##### ✅ Example Calculation:
+- **Yesterday’s Portfolio:** $10,000
+- **Today’s Strategy:** `"No Investment"`
+- **Portfolio Value Stays the Same:**
+"""
+    )
+    st.latex(r"""\text{Portfolio Value}_t = 10,000""")
+    st.markdown(
+        """
+---
+
+#### 📌 **Summary Table**
+
+| **Strategy**                     | **Formula Used** |
+|-----------------------------------|------------------|
+| **Long YMAG (No Hedge)**          | Portfolio Value_t = Shares Held × (YMAG Price_t + YMAG Dividend_t) $$ |
+| **Long YMAG + Short QQQ**         | Portfolio Value_t = (Shares Held × (YMAG Price_t + YMAG Dividend_t)) - QQQ Hedge PnL_t  |
+| **No Investment (Stay in Cash)**  | Portfolio Value_t = Portfolio Value_{t-1} |
+
+This breakdown ensures the correct handling of **portfolio value updates under each trading strategy**, including the **correct hedge profit/loss for QQQ shorting**. 🚀
+"""
+    )
+
     st.markdown("### Strategy 1 Detailed Explanation")
     st.markdown(
         """
@@ -665,25 +785,31 @@ elif page == "Strategy Overview":
     st.markdown("### Strategy 2 Detailed Explanation")
     st.markdown(
         """
-**Investment Rules for Strategy 2:**  
-1. **Remain in market if**: 15 ≤ VIX ≤ 20,  90 ≤ VVIX < 100  
-2. **Exit if**: VIX < 15 or VIX > 20 or VVIX < 90 or VVIX ≥ 100  
-3. **Re-Enter if**: VIX ∈ [15,20] and VVIX ∈ [90,95]  
+**Investment Rules for Strategy 2:**
+1. **Remain in market if**: 15 ≤ VIX ≤ 20,  90 ≤ VVIX < 100
+2. **Exit if**: VIX < 15 or VIX > 20 or VVIX < 90 or VVIX ≥ 100
+3. **Re-Enter if**: VIX ∈ [15,20] and VVIX ∈ [90,95]
 
-**Summary of Logic**:  
-- In-Market Condition: 15 ≤ VIX ≤ 20, 90 ≤ VVIX < 100  
-- Exit Condition: VIX < 15 or VIX > 20, or VVIX < 90 or VVIX ≥ 100  
+**Summary of Logic**:
+- In-Market Condition: 15 ≤ VIX ≤ 20, 90 ≤ VVIX < 100
+- Exit Condition: VIX < 15 or VIX > 20, or VVIX < 90 or VVIX ≥ 100
 - Re-Entry Condition: VIX ∈ [15,20], VVIX ∈ [90,95]
 """
     )
     st.markdown("### Strategy 3 Detailed Explanation")
     st.markdown(
         """
-**Investment Rules for Strategy 3:**  
-1. **Enter if**: VIX < 20 and VVIX < 95  
-2. **Exit if**: VIX > 20 or VVIX > 100  
+**Investment Rules for Strategy 3:**
+1. **Enter if**: VIX < 20 and VVIX < 95
+2. **Exit if**: VIX > 20 or VVIX > 100
 """
     )
+
 elif page == "About":
     st.title("About")
-    st.write("This page is under construction.")
+    st.write("This app allows you to backtest trading strategies on YMAX and YMAG assets using historical data. Features include:")
+    st.write("- **Asset Selection**: Choose YMAX, YMAG, or both.")
+    st.write("- **Strategy Selection**: Test three strategies with customizable parameters.")
+    st.write("- **Interactive Plots**: Visualize performance, entry/exit points, strategy distribution, and drawdowns using Plotly.")
+    st.write("- **Performance Metrics**: View Total Return, CAGR, Volatility, Sharpe Ratio, Max Drawdown, and Calmar Ratio.")
+    st.write("- **Export**: Save results to an Excel file.")
