@@ -616,11 +616,11 @@ exiting if conditions stray and re-entering once stability returns.
         # Display the stored data (preview)
         if st.session_state["ymax_df_final"] is not None:
             st.subheader("YMAX Trading Results")
-            st.dataframe(st.session_state["ymax_df_final"])
+            st.dataframe(st.session_state["ymax_df_final"], height = 260)
 
         if st.session_state["ymag_df_final"] is not None:
             st.subheader("YMAG Trading Results")
-            st.dataframe(st.session_state["ymag_df_final"])
+            st.dataframe(st.session_state["ymag_df_final"], height = 260)
 
     else:
         st.info("Click 'Run Backtest for Selected Strategy' to see results.")
