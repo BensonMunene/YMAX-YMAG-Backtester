@@ -544,7 +544,7 @@ leaves the market if volatility climbs beyond those cutoffs.
     if strategy_choice == "Strategy 3":
         st.subheader("Parameters for Strategy 3")
         vix_threshold = st.slider("Select VIX threshold:", min_value=1, max_value=40, value=20)
-        vvix_threshold = st.slider("Select VVIX threshold:", min_value=1, max_value=120, value=95)
+        vvix_threshold = st.slider("Select VVIX threshold:", min_value=1, max_value=200, value=95)
     else:
         vix_threshold = 20
         vvix_threshold = 95
