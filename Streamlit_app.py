@@ -274,10 +274,16 @@ def backtest_strategy_3(df, asset="YMAX", initial_investment=10_000):
 def compute_rolling_correlations(df, window):
     returns = df.loc[:, ~df.columns.str.contains("Dividends")].pct_change()
     corr_df = pd.DataFrame(index=df.index)
-    corr_df["YMAX-VIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VIX"])
-    corr_df["YMAX-VVIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VVIX"])
-    corr_df["YMAG-VIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VIX"])
-    corr_df["YMAG-VVIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VVIX"])
+
+    # Check available columns dynamically
+    if "YMAX" in returns.columns:
+        corr_df["YMAX-VIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VIX"])
+        corr_df["YMAX-VVIX Correlation"] = returns["YMAX"].rolling(window=window).corr(returns["VVIX"])
+
+    if "YMAG" in returns.columns:
+        corr_df["YMAG-VIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VIX"])
+        corr_df["YMAG-VVIX Correlation"] = returns["YMAG"].rolling(window=window).corr(returns["VVIX"])
+
     merged = df.join(corr_df)
     merged.dropna(inplace=True)
     return merged
