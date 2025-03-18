@@ -31,7 +31,7 @@ if "prices_and_stats_df" not in st.session_state:
 # ==============================================
 # Setting the Data Directory
 # ==============================================
-data_dir = "data/"
+data_dir = "data"
 
 # ==============================================
 # STRATEGY 1
