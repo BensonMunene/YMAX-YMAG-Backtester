@@ -31,7 +31,7 @@ if "prices_and_stats_df" not in st.session_state:
 # ==============================================
 # Setting the Data Directory
 # ==============================================
-data_dir = r"D:\Benson\aUpWork\Douglas Backtester Algo\Backtester Algorithm\Data\TradingView Data"
+data_dir = "data/"
 
 # ==============================================
 # STRATEGY 1
