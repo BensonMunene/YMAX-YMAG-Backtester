@@ -192,7 +192,7 @@ def display_ratios_zones_indicator():
     # FOR GITHUB USAGE: 
     # - Comment out the two lines above 
     # - Uncomment the lines below:
-    data_dir = os.getcwd()
+    data_dir = "data"
     file_path = os.path.join(data_dir, filename)
 
     @st.cache_data
