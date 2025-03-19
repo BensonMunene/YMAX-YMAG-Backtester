@@ -23,7 +23,7 @@ def display_ratios_zones_backtest():
     # 1. Data Directory & Helpers
     # ----------------------------
     # Specify your data directory (update this path when deploying)
-    data_dir = "Data"
+    data_dir = "data"
 
     def get_filename(asset, timeframe):
         tf_map = {
