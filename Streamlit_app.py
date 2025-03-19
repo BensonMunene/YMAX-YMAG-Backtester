@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import strategy_overview
 from Ratios_Strat_App import display_ratios_zones_indicator
+from strategy_4 import display_ratios_zones_backtest
 
 # ==============================================
 # Page Configuration
@@ -458,7 +459,7 @@ perf_df_ymag_final = None
 # ==============================================
 # Sidebar Navigation
 # ==============================================
-page = st.sidebar.radio("Navigation", ["Backtester", "Strategy Overview", "Ratios Zones Indicator", "About"])
+page = st.sidebar.radio("Navigation", ["Backtester", "Strategy Overview", "Ratios Zones Indicator", "Ratio-Zones Backtest", "About"])
 
 # ==============================================
 # BACKTESTER PAGE
@@ -767,6 +768,9 @@ elif page == "Strategy Overview":
 
 elif page == "Ratios Zones Indicator":
     display_ratios_zones_indicator()
+
+elif page == "Ratio-Zones Backtest":
+    display_ratios_zones_backtest()
 
 elif page == "About":
     st.title("About")
