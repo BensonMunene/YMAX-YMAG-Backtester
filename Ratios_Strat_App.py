@@ -48,7 +48,7 @@ def display_ratios_zones_indicator():
     # 4. Asset and Timeframe Selection
     # -----------------------------------------------------------------------------
     st.markdown("#### Select Asset")
-    st.markdown("Choose from **YMAX**, **YMAG**, **QQQ**, or **GLD**.")
+    st.markdown("Choose from **YMAX**, **YMAG**, **QQQ**, **QYLD**, or **GLD**.")
     asset_option = st.selectbox("Select Asset", ["YMAX", "YMAG", "QQQ", "GLD"])
 
     st.markdown("#### Select Time Frequency of the Asset Data")
@@ -179,6 +179,15 @@ def display_ratios_zones_indicator():
                 return "GLD_VIX_VVIX_Hourly.csv"
             elif timeframe == "30M":
                 return "GLD_VIX_VVIX_30Mins.csv"
+        elif asset == "QYLD":
+            if timeframe == "Daily":
+                return "QYLD_VIX_VVIX_Daily.csv"
+            elif timeframe == "4H":
+                return "QYLD_VIX_VVIX_4H.csv"
+            elif timeframe == "1H":
+                return "QYLD_VIX_VVIX_Hourly.csv"
+            elif timeframe == "30M":
+                return "QYLD_VIX_VVIX_30Mins.csv"
 
     filename = get_filename(asset_option, timeframe_option)
     
