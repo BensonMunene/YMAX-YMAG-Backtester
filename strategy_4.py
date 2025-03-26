@@ -11,9 +11,9 @@ import plotly.graph_objs as go
 # We store the backtest results in session state so that changing the CAGR year
 # doesn't force the user to re-run the entire backtest.
 if "zones_res" not in st.session_state:
-    st.session_state["zones_res"] = None
+    st.session_state["zones_res"] = False
 if "zones_done" not in st.session_state:
-    st.session_state["zones_done"] = None
+    st.session_state["zones_done"] = False
 
 # ==============================================================================
 # Main Function: display_ratios_zones_backtest()
