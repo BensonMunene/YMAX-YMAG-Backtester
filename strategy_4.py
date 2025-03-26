@@ -13,7 +13,7 @@ import plotly.graph_objs as go
 if "zones_res" not in st.session_state:
     st.session_state["zones_res"] = None
 if "zones_done" not in st.session_state:
-    st.session_state["zones_done"] = False
+    st.session_state["zones_done"] = None
 
 # ==============================================================================
 # Main Function: display_ratios_zones_backtest()
