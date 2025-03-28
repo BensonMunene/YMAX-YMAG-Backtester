@@ -31,8 +31,8 @@ if "backtest_done" not in st.session_state:
 # ==============================================
 # Setting the Data Directory
 # ==============================================
-# data_dir = "data"
-data_dir = r"D:\Benson\aUpWork\Douglas Backtester Algo\Backtester Algorithm\Data\TradingView Data"
+data_dir = "data"
+# data_dir = r"D:\Benson\aUpWork\Douglas Backtester Algo\Backtester Algorithm\Data\TradingView Data"
 
 # ==============================================
 # STRATEGIES
