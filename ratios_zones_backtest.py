@@ -38,9 +38,8 @@ def display_ratios_zones_backtest():
     # ----------------------------
     # 1) Data Directory & Helpers
     # ----------------------------
-    data_dir = r"D:\Benson\aUpWork\Douglas Backtester Algo\Backtester Algorithm\Data\TradingView Data"
-    # data_dir = "data"
-
+    # data_dir = r"D:\Benson\aUpWork\Douglas Backtester Algo\Backtester Algorithm\Data\TradingView Data"
+    data_dir = "data"
 
     def get_filename(asset, timeframe):
         tf_map = {
